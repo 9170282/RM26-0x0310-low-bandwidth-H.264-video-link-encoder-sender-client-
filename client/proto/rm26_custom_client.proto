@@ -1,0 +1,238 @@
+// RoboMaster 2026 机甲大师高校系列赛通信协议 V2.0.0
+
+
+syntax = "proto3";
+
+package rm26;
+
+// ============================================================
+// 上行消息 (自定义客户端 -> 服务器)
+// ============================================================
+
+// 2.2.1 KeyboardMouseControl — 传输鼠标键盘输入（75Hz）
+message KeyboardMouseControl {
+  optional int32 mouse_x = 1;           // 鼠标 x 轴移动速度，负值左移
+  optional int32 mouse_y = 2;           // 鼠标 y 轴移动速度，负值下移
+  optional int32 mouse_z = 3;           // 鼠标滚轮移动速度，负值后滚
+  optional bool left_button_down = 4;   // 左键按下
+  optional bool right_button_down = 5;  // 右键按下
+  optional uint32 keyboard_value = 6;   // 键盘按键位掩码（bit0=W, bit1=S, ...bit15=B）
+  optional bool mid_button_down = 7;    // 中键按下
+}
+
+// 2.2.2 CustomControl — 最大30字节自定义数据（75Hz）
+message CustomControl {
+  optional bytes data = 1;              // 最大30字节自定义数据
+}
+
+
+// 2.2.25 CommonCommand — 机器人多种常用指令
+message CommonCommand {
+  optional uint32 cmd_type = 1;         // 1=兑换17mm弹量, 2=兑换42mm弹量, 3=确认复活, 4=兑换立即复活, 5=远程兑换弹量, 6=远程兑换血量
+  optional uint32 param = 2;            // 命令参数（弹量兑换需为10的倍数）
+}
+
+// 2.2.26 HeroDeployModeEventCommand — 英雄部署模式指令
+message HeroDeployModeEventCommand {
+  optional uint32 mode = 1;             // 0=退出部署, 1=进入部署
+}
+
+// 2.2.28 RuneActivateCommand — 能量机关激活指令
+message RuneActivateCommand {
+  optional uint32 activate = 1;         // 1=开启激活
+}
+
+
+
+
+// 2.2.18 MapClickCmd — 地图点击标记指令
+message MapClickCmd {
+  optional float x = 1;                 // 点击 x 坐标
+  optional float y = 2;                 // 点击 y 坐标
+  optional uint32 cmd_type = 3;         // 操作类型
+}
+
+// 2.2.23 RobotPerformanceSelectionCommand — 性能体系选择
+message RobotPerformanceSelectionCommand {
+  optional uint32 shooter_performance = 1;  // 发射机构性能体系
+  optional uint32 chassis_performance = 2;  // 底盘性能体系
+  optional uint32 control_mode = 3;         // 控制方式
+}
+
+// ============================================================
+// 下行消息 (服务器 -> 自定义客户端)
+// ============================================================
+
+// 2.2.3 GameStatus — 比赛全局状态（5Hz）
+message GameStatus {
+  optional uint32 current_round = 1;        // 当前局号（从1开始）
+  optional uint32 total_rounds = 2;         // 总局数
+  optional uint32 red_score = 3;            // 红方得分
+  optional uint32 blue_score = 4;           // 蓝方得分
+  optional uint32 current_stage = 5;        // 0=未开始, 1=准备, 2=自检, 3=5秒倒计时, 4=比赛中, 5=结算中
+  optional int32 stage_countdown_sec = 6;   // 当前阶段剩余时间（秒）
+  optional int32 stage_elapsed_sec = 7;     // 当前阶段已过时间（秒）
+  optional bool is_paused = 8;              // 是否暂停
+  optional uint32 game_result = 9;          // 0=平局, 1=红胜, 2=蓝胜, 255=无效
+  optional uint32 end_reason = 10;          // 比赛结束原因，结算中时有效，否则255
+}
+
+// 2.2.4 GlobalUnitStatus — 基地/前哨站/所有机器人状态（1Hz）
+message GlobalUnitStatus {
+  optional uint32 base_health = 1;              // 己方基地当前血量
+  optional uint32 base_status = 2;              // 0=无敌, 1=解除无敌护甲未展开, 2=解除无敌护甲展开
+  optional uint32 base_shield = 3;              // 己方基地当前护盾值
+  optional uint32 outpost_health = 4;           // 己方前哨站当前血量
+  optional uint32 outpost_status = 5;           // 0=无敌, 1=存活/解除无敌/装甲旋转, 2=存活/装甲停转, 3=击毁不可重建, 4=击毁可重建, 5=重建中
+  optional uint32 enemy_base_health = 6;        // 对方基地血量
+  optional uint32 enemy_base_status = 7;        // 对方基地状态（同上枚举）
+  optional uint32 enemy_base_shield = 8;        // 对方基地护盾
+  optional uint32 enemy_outpost_health = 9;     // 对方前哨站血量
+  optional uint32 enemy_outpost_status = 10;    // 对方前哨站状态（同上枚举）
+  repeated uint32 robot_health = 11;            // [己1,己2,己3,己4,己7, 敌1,敌2,敌3,敌4,敌7] 血量
+  repeated int32 robot_bullets = 12;            // 己方机器人剩余累计发弹量
+  optional uint32 total_damage_ally = 13;       // 己方累计总伤害
+  optional uint32 total_damage_enemy = 14;      // 对方累计总伤害
+}
+
+// 2.2.5 GlobalLogisticsStatus — 全局后勤信息（1Hz）
+message GlobalLogisticsStatus {
+  optional uint32 remaining_economy = 1;        // 己方当前经济
+  optional uint64 total_economy_obtained = 2;   // 己方累计总经济
+  optional uint32 tech_level = 3;               // 己方科技等级
+  optional uint32 encryption_level = 4;         // 己方加密等级
+}
+
+// 2.2.6 GlobalSpecialMechanism — 全局特殊机制（1Hz）
+message GlobalSpecialMechanism {
+  repeated uint32 mechanism_id = 1;       // 正在生效的特殊机制ID
+  repeated int32 time_param = 2;          // 对应的时间参数（秒）
+}
+
+// 2.2.7 Event — 全局事件通知（触发式）
+message Event {
+  optional uint32 event_type = 1;         // 事件类型
+  optional uint32 event_data = 2;         // 事件数据
+}
+
+// 2.2.8 RobotInjuryStat — 机器人单次存活累计受伤统计（1Hz）
+message RobotInjuryStat {
+  optional uint32 robot_id = 1;           // 机器人 ID
+  optional uint32 total_hp_deducted = 2;  // 该存活期内累计扣除血量
+  optional uint32 total_hits = 3;         // 该存活期内累计受到攻击次数
+  optional uint32 injury_type_count = 4;  // 不同伤害事件的计数
+}
+
+// 2.2.9 RobotRespawnStatus — 机器人复活状态同步（1Hz）
+message RobotRespawnStatus {
+  optional uint32 robot_id = 1;           // 机器人 ID
+  optional uint32 respawn_status = 2;     // 复活状态
+  optional int32 respawn_countdown = 3;   // 复活倒计时（秒）
+  optional uint32 respawn_cost_gold = 4;  // 立即复活所需金币
+  optional bool can_free_respawn = 5;     // 可否免费复活
+  optional bool can_instant_respawn = 6;  // 可否立即复活（金币兑换）
+}
+
+// 2.2.10 RobotStaticStatus — 机器人固定属性和配置（1Hz）
+message RobotStaticStatus {
+  optional uint32 connection_state = 1;           // 0=未连接, 1=已连接
+  optional uint32 field_state = 2;                // 上场状态 0=上场, 1=未上场
+  optional uint32 alive_state = 3;                // 0=未知, 1=存活, 2=战亡
+  optional uint32 robot_id = 4;                   // 机器人编号
+  optional uint32 robot_type = 5;                 // 机器人类型
+  optional uint32 performance_system_shooter = 6; // 发射机构性能体系
+  optional uint32 performance_system_chassis = 7; // 底盘性能体系
+  optional uint32 current_level = 8;              // 当前等级
+  optional uint32 max_health = 9;                 // 最大血量
+  optional uint32 max_heat = 10;                  // 最大热量
+  optional float heat_cooling_rate = 11;          // 热量冷却速率（每秒）
+  optional uint32 max_power = 12;                 // 最大功率
+  optional uint32 max_buffer_energy = 13;         // 最大缓冲能量
+  optional uint32 max_chassis_energy = 14;        // 最大底盘能量
+}
+
+// 2.2.11 RobotDynamicStatus — 机器人实时数据（10Hz）
+message RobotDynamicStatus {
+  optional uint32 current_health = 1;             // 当前血量
+  optional float current_heat = 2;                // 当前热量
+  optional float last_projectile_fire_rate = 3;   // 上一次弹丸射速
+  optional uint32 current_chassis_energy = 4;     // 当前剩余底盘能量
+  optional uint32 current_buffer_energy = 5;      // 当前缓冲能量
+  optional uint32 current_experience = 6;         // 当前经验值
+  optional uint32 experience_for_upgrade = 7;     // 距下次升级还需经验
+  optional uint32 total_projectiles_fired = 8;    // 累计已发弹量
+  optional uint32 remaining_ammo = 9;             // 剩余允许发弹量
+  optional bool is_out_of_combat = 10;            // 是否脱战状态
+  optional uint32 out_of_combat_countdown = 11;   // 脱战倒计时
+  optional bool can_remote_heal = 12;             // 可否远程补血
+  optional bool can_remote_ammo = 13;             // 可否远程补弹
+}
+
+// 2.2.12 RobotModuleStatus — 机器人各模块运行状态（1Hz）
+message RobotModuleStatus {
+  optional uint32 module_id = 1;          // 模块 ID
+  optional uint32 module_status = 2;      // 模块状态
+  optional uint32 online_status = 3;      // 在线状态
+}
+
+// 2.2.13 RobotPosition — 机器人空间坐标和朝向（1Hz）
+message RobotPosition {
+  optional float x = 1;                   // x 坐标（m）
+  optional float y = 2;                   // y 坐标（m）
+  optional float yaw = 3;                 // 朝向角（度），正北为0
+  optional uint32 robot_id = 4;           // 机器人ID
+}
+
+// 2.2.14 Buff — Buff效果信息（获得增益时触发，此后1Hz至增益结束）
+message Buff {
+  optional uint32 buff_type = 1;          // Buff 类型
+  optional int32 buff_value = 2;          // Buff 数值
+  optional bool is_active = 3;            // 是否激活中
+}
+
+// 2.2.15 PenaltyInfo — 判罚信息同步（触发式）
+message PenaltyInfo {
+  optional uint32 penalty_level = 1;      // 判罚等级
+  optional uint32 offending_robot_id = 2; // 违规机器人ID
+  optional uint32 violation_count = 3;    // 违规次数
+}
+
+
+// 2.2.17 MapClickInfo — 地图点击标记信息同步（触发式）
+message MapClickInfo {
+  optional float x = 1;                   // 标记 x 坐标
+  optional float y = 2;                   // 标记 y 坐标
+  optional uint32 click_type = 3;         // 标记类型
+  optional uint32 sender_id = 4;          // 发送者ID
+}
+
+
+// 2.2.20 CustomByteBlock — 自定义数据流（50Hz，机器人->客户端）
+message CustomByteBlock {
+  optional bytes data = 1;                // 最大2.4kbit自定义数据
+}
+
+
+// 2.2.24 RobotPerformanceSelectionSync — 性能体系状态同步（1Hz）
+message RobotPerformanceSelectionSync {
+  optional uint32 robot_id = 1;               // 机器人ID
+  optional uint32 shooter_performance = 2;     // 当前发射机构性能体系
+  optional uint32 chassis_performance = 3;    // 当前底盘性能体系
+  optional uint32 control_mode = 4;           // 当前控制方式
+}
+
+// 2.2.27 DeployModeStatusSync — 英雄部署模式状态同步（1Hz）
+message DeployModeStatusSync {
+  optional uint32 status = 1;             // 0=未部署, 1=已部署
+}
+
+// 2.2.29 RuneStatusSync — 能量机关状态同步（1Hz）
+message RuneStatusSync {
+  optional uint32 rune_status = 1;        // 1=未激活, 2=正在激活, 3=已激活
+  optional uint32 activated_arms = 2;     // 当前已激活灯臂数量
+  optional float average_rings = 3;       // 平均环数（仅大能量机关激活中有效）
+}
+
+
+
+

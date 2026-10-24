@@ -1,0 +1,5 @@
+paho-mqtt>=2.0
+protobuf>=3.20
+av>=11.0
+opencv-python>=4.8
+numpy>=1.24
