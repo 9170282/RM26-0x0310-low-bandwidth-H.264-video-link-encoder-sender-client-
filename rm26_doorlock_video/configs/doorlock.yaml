@@ -1,0 +1,54 @@
+# 低带宽落点图传（doorlock）配置
+# 链路: 相机 → 准星区域裁剪放大 → 静态简化 → H.264 压缩
+#       → 0x0310 串口帧(裸 Annex-B 字节流) → C板 → 图传(无线) → 裁判系统服务器 → MQTT → 自定义客户端
+
+#####-----相机参数-----#####
+camera_name: "hikrobot"   # 本精简工程仅支持 hikrobot
+exposure_ms: 2.2            # 曝光时间(ms)
+image_width: 1440
+image_height: 1080
+usb_frame_rate: 30          # 相机帧率上限
+vid_pid: "2bdf:0001"
+gain: 16.9
+
+#####-----doorlock 图传参数-----#####
+doorlock:
+  crop_size: 800           # 中心裁剪边长（工业相机 1440x1080 时用 800；USB 640x360 时用 360）
+  output_size: 300         # 编码分辨率（准星区域放大后的输出尺寸）
+  output_fps: 30           # 输出帧率（<60 时抽帧; 30fps≈5kB/s, 远低于链路 15kB/s 上限）
+  target_bitrate: 80       # 目标码率 kbps（编码固定零延迟: bframes=0+lookahead=0, 码率需留余量）
+  x264_preset: "veryfast"  # ultrafast/superfast/veryfast/faster/fast/medium/slow/slower/veryslow/placebo
+                           # IDR 间隔固定为 2*output_fps 帧, 减少 I 帧开销
+
+  static_simplify: true    # 静态区域简化（背景模糊 + 低码率灰度化）
+  motion_threshold: 14     # 运动检测阈值
+  motion_erode_px: 2       # 运动掩码腐蚀
+  motion_dilate_px: 6      # 运动掩码膨胀
+  motion_trail_frames: 90  # 拖影历史帧数
+  trail_disable_motion_ratio: 0.30   # 全局运动比例超阈值时禁用拖影
+  bg_update_alpha: 0.01    # 背景模型更新速度
+  bg_blur_sigma: 1.8       # 静态区模糊强度
+  center_clear_size: 150   # 中心保护区尺寸（准星附近不模糊）
+  force_monochrome: false  # 强制全画面灰度
+
+  enable_display: true     # 编码端 4 窗口调试显示
+  debug_dump_enable: false # 每 N 帧保存调试图片
+  debug_dump_every_n_frames: 20
+  debug_dump_save_raw: true
+  debug_dump_save_roi: true
+  debug_dump_save_static: true
+  debug_dump_save_final: true
+  debug_dump_dir: "logs/doorlock_debug_imgs"
+
+  # ===== 发送段（裁判系统串口协议 0x0310 自定义控制器交互数据）=====
+  # 链路: NUC --串口--> C板 --> 图传模块 --无线--> 裁判系统服务器 --MQTT--> 客户端
+  serial_port: "/dev/ttyUSB0"   # NUC 连接 C板 的串口（C板固件透传给图传模块，按实际修改）
+  serial_baud: 921600           # 串口波特率
+  payload_size: 300             # 单个 0x0310 帧 data 段长度（协议上限 300 字节, 全部为裸 H.264 码流, 无自定义包头）
+  cmd_id: 0x0310                # 命令码：0x0310 自定义控制器交互数据（官方协议 V2.0.0 表 1-41）
+  max_frame_rate: 50            # 0x0310 发送频率上限，官方协议限制 50Hz（按 21ms/片 匀速摊开, 不突发）
+  # 注意：50Hz × 300B ≈ 15 kB/s ≈ 120 kbps 是本链路数据上限，
+  # target_bitrate 超过 ~115 kbps 会因限频丢帧，图传链路实际有效码率受限
+  # （发送端已改为固定 21ms/片 匀速摊开，不再使用带宽窗口限速）
+
+  output_file: "logs/doorlock_stream.bin"  # 码流落盘（可 ffplay -f h264 回放验证；留空关闭）
